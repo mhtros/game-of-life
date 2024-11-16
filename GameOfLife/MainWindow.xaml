@@ -3,22 +3,28 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        Title="Game of life">
+        DataContext="{Binding RelativeSource={RelativeSource Self}}"
+        mc:Ignorable="d" MinWidth="500" Width="650" MinHeight="500" Height="700"
+        Title="Conway's Game of Life">
     <Window.Resources>
         <Style TargetType="{x:Type Button}">
-            <Setter Property="Padding" Value="3" />
+            <Setter Property="Padding" Value="10 3" />
             <Setter Property="Margin" Value="0 0 5 0" />
         </Style>
     </Window.Resources>
     <StackPanel>
         <StackPanel Margin="3" Orientation="Horizontal">
-            <Button Click="NextGeneration">Next Generation</Button>
-            <Button Click="ResetGame">Reset</Button>
-            <Label>Generations:</Label><Label x:Name="IterationNo" />
-            <Label>Alive cells:</Label><Label x:Name="AliveCells" />
+            <Button x:Name="ToggleSimulationBtn" Content="Start" Click="ToggleSimulation" />
+            <Button Click="NextGeneration" IsEnabled="{Binding IsSimulationStopped}">Next</Button>
+            <Button Click="ResetSimulation" IsEnabled="{Binding IsSimulationStopped}">Reset</Button>
+            <Label>Speed: </Label>
+            <Slider x:Name="SpeedSlider" Width="100" Minimum="200" Maximum="2000" VerticalAlignment="Center"
+                    ValueChanged="ModifySpeed" />
+            <Label Margin="100 0 0 0">Generations:</Label>
+            <Label Content="{Binding GenerationNumber}" />
+            <Label>Alive cells:</Label>
+            <Label Content="0" x:Name="AliveCellsLabel" />
         </StackPanel>
-        <Canvas x:Name="Canvas" Margin="4"
-                MouseDown="GiveOrTakeLife" MouseMove="GiveOrTakeLife" />
+        <Canvas x:Name="Canvas" Margin="4" MouseDown="GiveOrTakeLife" MouseMove="GiveOrTakeLife" />
     </StackPanel>
 </Window>

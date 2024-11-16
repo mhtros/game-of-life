@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,27 +15,45 @@ namespace GameOfLife
     {
         private const int CellSize = 10;
         private const int SpaceSize = 2;
-        private const int CanvasSize = 60;
+        private const int CanvasSize = 50;
 
-        private static readonly Brush Dead = Brushes.LightGray;
         private static readonly Brush Alive = Brushes.Red;
+        private static readonly Brush Dead = Brushes.LightGray;
 
-        private int _generationsNo;
+        private TimeSpan _simulationDelay;
+
+        #region Binding Properties
+
+        public static readonly DependencyProperty GenerationNumberProperty = DependencyProperty
+            .Register(nameof(GenerationNumber), typeof(int), typeof(MainWindow), new PropertyMetadata(0));
+
+        public int GenerationNumber
+        {
+            get => (int)GetValue(GenerationNumberProperty);
+            set => SetValue(GenerationNumberProperty, value);
+        }
+
+        public static readonly DependencyProperty IsSimulationStoppedProperty = DependencyProperty
+            .Register(nameof(IsSimulationStopped), typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+        public bool IsSimulationStopped
+        {
+            get => (bool)GetValue(IsSimulationStoppedProperty);
+            set => SetValue(IsSimulationStoppedProperty, value);
+        }
+
+        #endregion
 
         public MainWindow()
         {
             InitializeComponent();
-            AliveCells.Content = 0;
-            IterationNo.Content = 0;
-            InitializeUniverseCanvas();
+            InitializeCanvas();
         }
 
-        private int CurrentAliveCells
-        {
-            get { return Canvas.Children.OfType<Rectangle>().Count(r => r.Fill == Alive); }
-        }
+        private void AliveNumberChanged(object sender, EventArgs e) => AliveCellsLabel.Content =
+            Canvas.Children.OfType<Rectangle>().Count(r => r.Fill == Alive);
 
-        private void InitializeUniverseCanvas()
+        private void InitializeCanvas()
         {
             for (var i = 0; i < CanvasSize; i++)
             for (var j = 0; j < CanvasSize; j++)
@@ -44,6 +65,10 @@ namespace GameOfLife
                     Fill = Dead
                 };
 
+                // Register change color event on each rectangle
+                DependencyPropertyDescriptor.FromProperty(Shape.FillProperty, typeof(Shape))
+                    .AddValueChanged(rectangle, AliveNumberChanged);
+
                 Canvas.Children.Add(rectangle);
 
                 Canvas.SetLeft(rectangle, i * (CellSize + SpaceSize));
@@ -51,9 +76,17 @@ namespace GameOfLife
             }
         }
 
-        private void NextGeneration(object sender, RoutedEventArgs e)
+        private void NextGeneration(object sender, RoutedEventArgs e) => DrawNextGeneration();
+
+        private void ModifySpeed(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            IterationNo.Content = ++_generationsNo;
+            var newSimulationDelay = SpeedSlider.Maximum + SpeedSlider.Minimum - e.NewValue;
+            _simulationDelay = TimeSpan.FromMilliseconds(newSimulationDelay);
+        }
+
+        private void DrawNextGeneration()
+        {
+            GenerationNumber++;
 
             var canvasList = new List<Rectangle>(Canvas.Children.OfType<Rectangle>());
 
@@ -114,8 +147,18 @@ namespace GameOfLife
                 var currentIndex = i * CanvasSize + j;
                 canvasList[currentIndex].Fill = nextGeneration[currentIndex] ? Alive : Dead;
             }
+        }
 
-            AliveCells.Content = CurrentAliveCells;
+        private async void ToggleSimulation(object sender, RoutedEventArgs e)
+        {
+            IsSimulationStopped = !IsSimulationStopped;
+            ToggleSimulationBtn.Content = IsSimulationStopped ? "Start" : "Stop";
+
+            while (IsSimulationStopped == false)
+            {
+                await Task.Run(async () => await Dispatcher.InvokeAsync(DrawNextGeneration));
+                await Task.Delay(_simulationDelay);
+            }
         }
 
         private void GiveOrTakeLife(object sender, MouseEventArgs e)
@@ -126,14 +169,11 @@ namespace GameOfLife
 
             if (e.LeftButton == MouseButtonState.Pressed) rectangle.Fill = Alive;
             if (e.RightButton == MouseButtonState.Pressed) rectangle.Fill = Dead;
-
-            AliveCells.Content = CurrentAliveCells;
         }
 
-        private void ResetGame(object sender, RoutedEventArgs e)
+        private void ResetSimulation(object sender, RoutedEventArgs e)
         {
-            IterationNo.Content = _generationsNo = 0;
-            AliveCells.Content = 0;
+            GenerationNumber = 0;
 
             var aliveCells = Canvas.Children
                 .OfType<Rectangle>()
